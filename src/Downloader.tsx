@@ -20,7 +20,7 @@ export default function Downloader() {
 
         try {
             // Call backend API
-            const response = await fetch("http://localhost:5000/api/resolve", {
+            const response = await fetch("/api/resolve", {
                 method: "POST",
                 headers: {
                     "Content-Type": "application/json",
@@ -54,7 +54,7 @@ export default function Downloader() {
     const triggerDownload = () => {
         if (downloadUrl) {
             // Use local proxy to avoid 403 Forbidden (Varnish/CDN errors)
-            const proxyLink = `http://localhost:5000/api/proxy?url=${encodeURIComponent(downloadUrl)}&filename=${encodeURIComponent(videoInfo?.title || 'video')}.mp4`;
+            const proxyLink = `/api/proxy?url=${encodeURIComponent(downloadUrl)}&filename=${encodeURIComponent(videoInfo?.title || 'video')}.mp4`;
             window.open(proxyLink, "_blank");
         }
     };
