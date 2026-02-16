@@ -53,9 +53,7 @@ export default function Downloader() {
 
     const triggerDownload = () => {
         if (downloadUrl) {
-            // Use local proxy to avoid 403 Forbidden (Varnish/CDN errors)
-            const proxyLink = `/api/proxy?url=${encodeURIComponent(downloadUrl)}&filename=${encodeURIComponent(videoInfo?.title || 'video')}.mp4`;
-            window.open(proxyLink, "_blank");
+            window.open(downloadUrl, "_blank");
         }
     };
 

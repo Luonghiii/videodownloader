@@ -69,33 +69,7 @@ def resolve_url():
     except Exception as e:
          return jsonify({'error': str(e)}), 500
 
-import requests
 
-@app.route('/api/proxy')
-def proxy_download():
-    url = request.args.get('url')
-    filename = request.args.get('filename', 'video.mp4')
-    
-    if not url:
-        return "URL is required", 400
-
-    try:
-        # Stream the content
-        req = requests.get(url, stream=True)
-        
-        # Generator to stream content
-        def generate():
-            for chunk in req.iter_content(chunk_size=4096):
-                yield chunk
-
-        return app.response_class(generate(), headers={
-            'Content-Disposition': f'attachment; filename="{filename}"',
-            'Content-Type': req.headers.get('Content-Type', 'video/mp4'),
-            'Content-Length': req.headers.get('Content-Length')
-        })
-
-    except Exception as e:
-        return str(e), 500
 
 # For local testing
 if __name__ == '__main__':
