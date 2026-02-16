@@ -1,3 +1,3 @@
-import app from '../universalDownloader-main/index.js';
+const app = require('../universalDownloader-main/index.js');
 
-export default app;
+module.exports = app;

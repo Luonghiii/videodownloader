@@ -18,6 +18,7 @@ def get_info():
             'quiet': True,
             'skip_download': True,
             'extract_flat': True,
+            'cache_dir': '/tmp/',
         }
         with yt_dlp.YoutubeDL(ydl_opts) as ydl:
             info = ydl.extract_info(url, download=False)
@@ -44,6 +45,7 @@ def resolve_url():
             'quiet': True,
             'format': 'best', # Get best single file
             'noplaylist': True,
+            'cache_dir': '/tmp/',
         }
         with yt_dlp.YoutubeDL(ydl_opts) as ydl:
             info = ydl.extract_info(url, download=False)
