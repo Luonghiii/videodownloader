@@ -1,59 +1,173 @@
 import { motion } from "framer-motion";
-import { Download, Link2, Settings } from "lucide-react";
+import { Download, Link2, AlertCircle } from "lucide-react";
 import { useState } from "react";
+
+const SERVER_1_BASE = "https://api1.luonghiii.id.vn";
+const SERVER_2_URL = "https://server2.luonghiii.id.vn/api/resolve";
+
+// Helper to determine API endpoint based on URL for Server 1
+const getApiEndpoint = (url: string) => {
+    if (url.includes("instagram.com") || url.includes("facebook.com")) return `${SERVER_1_BASE}/api/meta/download`;
+    if (url.includes("tiktok.com")) return `${SERVER_1_BASE}/api/tiktok/download`;
+    if (url.includes("youtube.com") || url.includes("youtu.be")) return `${SERVER_1_BASE}/api/youtube/download`;
+    if (url.includes("twitter.com") || url.includes("x.com")) return `${SERVER_1_BASE}/api/twitter/download`;
+    if (url.includes("pinterest.com") || url.includes("pin.it")) return `${SERVER_1_BASE}/api/pinterest/download`;
+    if (url.includes("reddit.com")) return `${SERVER_1_BASE}/api/reddit/download`;
+    if (url.includes("soundcloud.com")) return `${SERVER_1_BASE}/api/soundcloud/download`;
+    if (url.includes("spotify.com")) return `${SERVER_1_BASE}/api/spotify/download`;
+    if (url.includes("threads.net")) return `${SERVER_1_BASE}/api/threads/download`;
+    if (url.includes("tumblr.com")) return `${SERVER_1_BASE}/api/tumblr/download`;
+    if (url.includes("linkedin.com")) return `${SERVER_1_BASE}/api/linkedin/download`;
+    if (url.includes("douyin.com")) return `${SERVER_1_BASE}/api/douyin/download`;
+    if (url.includes("kuaishou.com")) return `${SERVER_1_BASE}/api/kuaishou/download`;
+    if (url.includes("bsky.app")) return `${SERVER_1_BASE}/api/bluesky/download`;
+    if (url.includes("capcut.com")) return `${SERVER_1_BASE}/api/capcut/download`;
+    if (url.includes("dailymotion.com")) return `${SERVER_1_BASE}/api/dailymotion/download`;
+    if (url.includes("snapchat.com")) return `${SERVER_1_BASE}/api/snapchat/download`;
+    if (url.includes("terabox.com")) return `${SERVER_1_BASE}/api/terabox/download`;
+
+    // Fallback if platform not detected but user wants Server 1 (might fail)
+    return `${SERVER_1_BASE}/api/meta/download`;
+};
 
 export default function Downloader() {
     const [url, setUrl] = useState("");
     const [loading, setLoading] = useState(false);
     const [status, setStatus] = useState("");
 
+    // Removed useServer2 state as we now auto-fallback
+
     const [videoInfo, setVideoInfo] = useState<{ title: string; thumbnail: string; platform: string } | null>(null);
     const [downloadUrl, setDownloadUrl] = useState("");
+    const [formats, setFormats] = useState<any[]>([]); // Store available formats/qualities
+    const [selectedFormat, setSelectedFormat] = useState("");
 
     const handleDownload = async () => {
         if (!url) return;
 
         setLoading(true);
-        setStatus("Analyzing link...");
+        setStatus("Analyzing...");
         setVideoInfo(null);
         setDownloadUrl("");
+        setFormats([]);
+        setSelectedFormat("");
 
+        let success = false;
+
+        // --- TRY SERVER 2 (PRIMARY) ---
         try {
-            // Call backend API
-            const response = await fetch("/api/resolve", {
-                method: "POST",
-                headers: {
-                    "Content-Type": "application/json",
-                },
-                body: JSON.stringify({ url }),
-            });
-
+            console.log("Trying Server 2...");
+            // Server 2: GET /api/resolve?url=...
+            const server2ApiUrl = `${SERVER_2_URL}?url=${encodeURIComponent(url)}`;
+            const response = await fetch(server2ApiUrl);
             const data = await response.json();
 
-            if (response.ok) {
-                setStatus("Video found!");
-                setVideoInfo({
-                    title: data.title,
-                    thumbnail: "", // API might not always return thumbnail in resolve for speed, can add if needed
-                    platform: "video",
-                });
-                setDownloadUrl(data.url);
-                setLoading(false);
-            } else {
-                setStatus(`Error: ${data.error || "Failed to resolve video"}`);
-                setLoading(false);
-            }
+            if (response.ok && !data.error) {
+                // Server 2 Success
+                console.log("Server 2 success:", data);
 
+                const title = data.title || "Video Found";
+                const thumbnail = data.thumbnail || "";
+                const videoUrl = data.url || "";
+                let availableFormats: any[] = [];
+
+                if (data.formats && Array.isArray(data.formats)) {
+                    availableFormats = data.formats;
+                }
+
+                if (availableFormats.length > 0 || videoUrl) {
+                    setStatus("Video found! Select quality to download.");
+                    setVideoInfo({
+                        title: title,
+                        thumbnail: thumbnail,
+                        platform: "video",
+                    });
+
+                    // Filter formats to show only useful ones
+                    const validFormats = availableFormats.filter((f: any) => f.url);
+
+                    if (validFormats.length > 0) {
+                        setFormats(validFormats);
+                        // Default to the first one (usually best)
+                        setDownloadUrl(validFormats[0].url);
+                        setSelectedFormat(validFormats[0].url);
+                    } else {
+                        // Fallback if no formats list but direct url exists
+                        setDownloadUrl(videoUrl);
+                        setSelectedFormat(videoUrl); // Also set selectedFormat for consistency
+                    }
+                    success = true;
+                }
+            } else {
+                console.warn("Server 2 returned error or empty:", data);
+            }
         } catch (error) {
-            console.error(error);
-            setStatus("Error connecting to server. Make sure the backend is running!");
-            setLoading(false);
+            console.error("Server 2 failed:", error);
         }
+
+        // --- IF SERVER 2 FAILED, TRY SERVER 1 (BACKUP) ---
+        if (!success) {
+            try {
+                setStatus("Primary server failed, trying backup server...");
+                console.log("Trying Server 1 (Backup)...");
+
+                const endpoint = getApiEndpoint(url);
+                const server1ApiUrl = `${endpoint}?url=${encodeURIComponent(url)}`;
+
+                // Server 1 usually uses GET based on previous code
+                const response = await fetch(server1ApiUrl);
+                const data = await response.json();
+
+                if (response.ok) {
+                    // Check if success structure matches Server 1
+                    if (data.success && data.data && data.data.data && data.data.data.length > 0) {
+                        const videoData = data.data.data[0];
+                        const title = videoData.filename || "Video Download";
+                        const thumbnail = videoData.thumbnail || "";
+                        const videoUrl = videoData.url || "";
+
+                        // Map Server 1 formats to common structure
+                        const availableFormats = data.data.data.map((item: any) => ({
+                            resolution: item.resolution || "HD",
+                            url: item.url,
+                            ext: "mp4",
+                            has_audio: true,
+                            filesize: null // Server 1 might not give filesize in bytes easy to read
+                        }));
+
+                        setStatus("Video found! Select quality to download.");
+                        setVideoInfo({
+                            title: title,
+                            thumbnail: thumbnail,
+                            platform: "video",
+                        });
+
+                        setFormats(availableFormats);
+                        if (availableFormats.length > 0) {
+                            setDownloadUrl(availableFormats[0].url);
+                            setSelectedFormat(availableFormats[0].url);
+                        } else if (videoUrl) {
+                            setDownloadUrl(videoUrl);
+                        }
+                        success = true;
+                    }
+                }
+            } catch (error) {
+                console.error("Server 1 failed:", error);
+            }
+        }
+
+        if (!success) {
+            setStatus("Error: Could not resolve video from any server.");
+        }
+
+        setLoading(false);
     };
 
     const triggerDownload = () => {
-        if (downloadUrl) {
-            window.open(downloadUrl, "_blank");
+        const targetUrl = selectedFormat || downloadUrl;
+        if (targetUrl) {
+            window.open(targetUrl, "_blank");
         }
     };
 
@@ -69,7 +183,7 @@ export default function Downloader() {
                 alignItems: "center",
                 justifyContent: "center",
                 minHeight: "100vh",
-                background: "transparent", // Use global background or transparent
+                background: "transparent",
                 color: "white",
                 fontFamily: "'Inter', sans-serif",
             }}
@@ -182,7 +296,7 @@ export default function Downloader() {
                 ))}
             </div>
 
-            {status && !downloadUrl && (
+            {status && (!downloadUrl && formats.length === 0) && (
                 <motion.div
                     initial={{ opacity: 0, y: 10 }}
                     animate={{ opacity: 1, y: 0 }}
@@ -192,14 +306,18 @@ export default function Downloader() {
                         background: "rgba(59, 130, 246, 0.2)",
                         border: "1px solid rgba(59, 130, 246, 0.4)",
                         borderRadius: "0.5rem",
-                        color: "#93c5fd"
+                        color: "#93c5fd",
+                        display: "flex",
+                        alignItems: "center",
+                        gap: "0.5rem",
                     }}
                 >
-                    {status}
+                    <AlertCircle size={20} />
+                    <span>{status}</span>
                 </motion.div>
             )}
 
-            {downloadUrl && (
+            {(downloadUrl || formats.length > 0) && (
                 <motion.div
                     initial={{ opacity: 0, y: 10 }}
                     animate={{ opacity: 1, y: 0 }}
@@ -211,7 +329,45 @@ export default function Downloader() {
                         gap: "1rem"
                     }}
                 >
-                    <div style={{ color: "white", fontSize: "1.2rem" }}>{videoInfo?.title}</div>
+                    {videoInfo?.thumbnail && (
+                        <img
+                            src={videoInfo.thumbnail}
+                            alt={videoInfo.title}
+                            style={{
+                                width: "100%",
+                                maxWidth: "300px",
+                                borderRadius: "1rem",
+                                boxShadow: "0 8px 30px rgba(0,0,0,0.3)",
+                                marginBottom: "1rem"
+                            }}
+                        />
+                    )}
+                    <div style={{ color: "white", fontSize: "1.2rem", textAlign: "center", padding: "0 1rem" }}>{videoInfo?.title}</div>
+
+                    {/* Format Selection UI */}
+                    {formats.length > 0 && (
+                        <select
+                            value={selectedFormat}
+                            onChange={(e) => setSelectedFormat(e.target.value)}
+                            style={{
+                                padding: "0.5rem",
+                                borderRadius: "0.5rem",
+                                border: "1px solid rgba(255,255,255,0.3)",
+                                background: "rgba(0,0,0,0.5)",
+                                color: "white",
+                                width: "100%",
+                                maxWidth: "300px",
+                                cursor: "pointer",
+                                fontSize: "1rem"
+                            }}
+                        >
+                            {formats.map((fmt, idx) => (
+                                <option key={idx} value={fmt.url} style={{ background: "#333" }}>
+                                    {fmt.resolution} {fmt.filesize ? `- ${(fmt.filesize / 1024 / 1024).toFixed(1)} MB` : ""}
+                                </option>
+                            ))}
+                        </select>
+                    )}
 
                     <button
                         onClick={triggerDownload}
@@ -234,11 +390,11 @@ export default function Downloader() {
                         onMouseLeave={(e) => e.currentTarget.style.transform = "scale(1)"}
                     >
                         <Download size={24} />
-                        Download Video
+                        Download {formats.length > 0 ? "Selected" : "Video"}
                     </button>
 
                     <button
-                        onClick={() => { setDownloadUrl(""); setStatus(""); setUrl(""); }}
+                        onClick={() => { setDownloadUrl(""); setStatus(""); setUrl(""); setFormats([]); setVideoInfo(null); }}
                         style={{
                             background: "transparent",
                             border: "1px solid rgba(255,255,255,0.3)",
@@ -260,26 +416,6 @@ export default function Downloader() {
                     100% { transform: rotate(360deg); }
                 }
             `}</style>
-
-            {!downloadUrl && (
-                <div style={{ marginTop: "2rem", display: "flex", gap: "1rem" }}>
-                    <button
-                        style={{
-                            background: "rgba(255, 255, 255, 0.05)",
-                            border: "none",
-                            borderRadius: "0.5rem",
-                            padding: "0.5rem 1rem",
-                            color: "white",
-                            cursor: "pointer",
-                            display: "flex",
-                            alignItems: "center",
-                            gap: "0.5rem",
-                        }}
-                    >
-                        <Settings size={16} /> Settings
-                    </button>
-                </div>
-            )}
         </motion.div>
     );
 }
