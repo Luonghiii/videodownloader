@@ -5,7 +5,7 @@ import Downloader from "./Downloader";
 
 export default function App() {
   const riveInputs = useRef<Record<string, StateMachineInput>>({});
-  const [showFullRive, setShowFullRive] = useState(true);
+  const [showFullRive, setShowFullRive] = useState(false);
 
   const { RiveComponent, rive } = useRive({
     src: `${import.meta.env.BASE_URL}c8cefb7b49258078c162ec0c6a8626fd.riv`,
@@ -42,6 +42,11 @@ export default function App() {
             alignItems: "center",
             cursor: "pointer",
           }}
+          onClick={handleClick}
+          onTouchEnd={(e) => {
+            e.preventDefault(); // Prevent double trigger
+            handleClick();
+          }}
           onMouseEnter={() => {
             if (riveInputs.current["onHover"])
               riveInputs.current["onHover"].value = true;
@@ -57,7 +62,6 @@ export default function App() {
           onMouseUp={() => {
             if (riveInputs.current["onMousedown"])
               riveInputs.current["onMousedown"].value = false;
-            handleClick();
           }}
         >
           <RiveComponent style={{ width: 120, height: 120 }} />
@@ -98,11 +102,11 @@ export function FullscreenRive({ onClose }: { onClose: () => void }) {
         inset: 0,
         display: "flex",
         justifyContent: "center",
-        alignItems: "center",
-        overflow: "hidden",
+        alignItems: "flex-start", // Changed from center to allow scrolling from top
+        overflowY: "auto", // Changed from hidden to auto
         zIndex: 1000,
-        backgroundColor: "transparent", // Reverted to transparent as requested
-        // Remove cursor pointer here to allow interaction with children
+        backgroundColor: "transparent",
+        paddingBottom: "2rem" // Add space at bottom
       }}
     >
       {!showContent && (
@@ -113,7 +117,6 @@ export function FullscreenRive({ onClose }: { onClose: () => void }) {
               position: "absolute",
               inset: 0,
               zIndex: 10,
-              pointerEvents: "none",
             }}
           >
             <RiveComponent
